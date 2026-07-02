@@ -2,6 +2,11 @@ import firebase_admin
 from firebase_admin import credentials, db
 import requests, json, datetime, os
 
+# ★ GitHub Actions 서버는 UTC로 돌아가므로, 한국 시간이 필요한 모든 곳에서 이 함수를 사용
+KST = datetime.timezone(datetime.timedelta(hours=9))
+def now_kst():
+    return datetime.datetime.now(KST)
+
 
 # ★ 스크립트 맨 위, 최초 1회만 초기화
 FIREBASE_KEY_PATH = "firebase-key.json"
@@ -27,13 +32,13 @@ FIREBASE_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedata
 
 
 def get_realtime_base_datetime():
-    now = datetime.datetime.now()
+    now = now_kst()
     if now.minute < 40:
         now -= datetime.timedelta(hours=1)
     return now.strftime("%Y%m%d"), now.strftime("%H00")
 
 def get_forecast_base_datetime():
-    now = datetime.datetime.now()
+    now = now_kst()
     base_hours = [2, 5, 8, 11, 14, 17, 20, 23]
     base_hour = None
     for h in reversed(base_hours):
@@ -69,8 +74,8 @@ def fetch_forecast():
     print("[예보] 상태코드:", r.status_code)
     items = r.json()["response"]["body"]["items"]["item"]
 
-    today_str = datetime.datetime.now().strftime("%Y%m%d")
-    current_hour = datetime.datetime.now().hour
+    today_str = now_kst().strftime("%Y%m%d")
+    current_hour = now_kst().hour
 
     morning_pop, afternoon_pop = 0.0, 0.0
     sky_value, sky_diff = None, 9999
@@ -121,7 +126,7 @@ def fetch_weather():
         morning_pop, afternoon_pop, sky_text = 0.0, 0.0, "맑음"
 
     out = {
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_kst().strftime("%Y-%m-%d %H:%M:%S"),
         "temperature": temp,
         "rainfall": rain,
         "precipitation": precipitation,

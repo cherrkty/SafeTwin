@@ -2,8 +2,9 @@ import requests
 from bs4 import BeautifulSoup
 import json
 import time
-from datetime import datetime
-# ★ 추가
+from datetime import datetime, timezone, timedelta
+
+KST = timezone(timedelta(hours=9))
 import firebase_admin
 from firebase_admin import credentials, db
 
@@ -334,7 +335,7 @@ def load_address_cache():
 # -------------------------------------------------------
 def collect_all():
     print("")
-    print("[" + datetime.now().strftime('%Y-%m-%d %H:%M:%S') + "] 전체 데이터 수집 중...")
+    print("[" + datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S') + "] 전체 데이터 수집 중...")
     try:
         rainfall    = collect_rainfall()
         waterlevel  = collect_waterlevel()
@@ -342,7 +343,7 @@ def collect_all():
         sluicegate  = collect_sluicegate()
         riverlevel  = collect_riverlevel()
         river_block = collect_river_block()
-        timestamp   = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        timestamp   = datetime.now(KST).strftime('%Y-%m-%d %H:%M:%S')
 
         data = {
             "timestamp":   timestamp,
