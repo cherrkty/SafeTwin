@@ -1,11 +1,3 @@
-# ★ 스크립트 맨 위, 최초 1회만 초기화
-FIREBASE_KEY_PATH = "firebase-key.json"
-FIREBASE_DB_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app"
-
-if not firebase_admin._apps:  # 중복 초기화 방지
-    cred = credentials.Certificate(FIREBASE_KEY_PATH)
-    firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
-
 import requests
 from bs4 import BeautifulSoup
 import json
@@ -15,6 +7,16 @@ from datetime import datetime
 # ★ 추가
 import firebase_admin
 from firebase_admin import credentials, db
+
+# ★ 스크립트 맨 위, 최초 1회만 초기화
+FIREBASE_KEY_PATH = "firebase-key.json"
+FIREBASE_DB_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app"
+
+if not firebase_admin._apps:  # 중복 초기화 방지
+    cred = credentials.Certificate(FIREBASE_KEY_PATH)
+    firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
+
+
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
@@ -358,7 +360,7 @@ def collect_all():
 
         # ★ 추가 — Firebase에도 같은 데이터 업로드
         try:
-           db.reference("gangnam_subang_data").set(data)
+            db.reference("gangnam_subang_data").set(data)
             print("Firebase 업로드 완료")
         except Exception as fe:
             print("Firebase 업로드 실패: " + str(fe))    
