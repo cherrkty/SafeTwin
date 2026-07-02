@@ -2,7 +2,7 @@ name: Collect Gangnam Weather Data
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    - cron: '4,14,24,34,44,54 * * * *'
   workflow_dispatch: {}
 
 jobs:
