@@ -142,17 +142,23 @@ def fetch_weather():
 
 try:
     w = fetch_weather()
-    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
-    with open(OUTPUT, "w", encoding="utf-8") as f:
-        json.dump(w, f, ensure_ascii=False, indent=2)
-    print("날씨 수집 완료:", w)
+except Exception as e:
+    print("데이터 수집 오류:", e)
+    w = None
 
- # ★ 추가 — Firebase에도 업로드
+if w is not None:
+    # 로컬 파일 저장 (Windows PC에서만 성공, GitHub 서버에선 실패해도 무시)
+    try:
+        os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+        with open(OUTPUT, "w", encoding="utf-8") as f:
+            json.dump(w, f, ensure_ascii=False, indent=2)
+        print("날씨 수집 완료:", w)
+    except Exception as e:
+        print("로컬 파일 저장 건너뜀 (클라우드 환경):", e)
+
+    # Firebase 업로드 (로컬 저장 성공 여부와 무관하게 항상 시도)
     try:
         db.reference("weather_gangnam").set(w)
         print("Firebase 업로드 완료")
     except Exception as fe:
         print("Firebase 업로드 실패:", fe)
-
-except Exception as e:
-    print("오류:", e)
