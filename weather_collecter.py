@@ -5,7 +5,11 @@ SERVICE_KEY = "5bd3ec725b6f3296044a5b57defb49b921430b38d68d1607e6703643bb66a65f"
 OUTPUT = r"G:\내 드라이브\수방프로젝트\weather_gangnam.json"
 NX, NY = 62, 126
 
-FIREBASE_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app/weather_gangnam.json"
+# ★ 수정 — 인증 없는 REST PUT 대신 firebase-admin 서비스 계정 인증으로 전환
+#   (워크플로우의 "Firebase 서비스 계정 키 파일 생성" 단계에서 firebase-key.json을 만들어줌)
+FIREBASE_DB_URL   = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app"
+FIREBASE_PATH     = "weather_gangnam"
+FIREBASE_KEY_FILE = "firebase-key.json"
 # ================
 
 def get_realtime_base_datetime():
@@ -132,11 +136,30 @@ def fetch_weather():
     }
     return out
 
+# ★ 수정 — firebase-admin 서비스 계정 인증으로 업로드 (보안 규칙 우회, 항상 쓰기 허용)
+def upload_to_firebase(data):
+    if not os.path.exists(FIREBASE_KEY_FILE):
+        print(f"Firebase 서비스 계정 키 파일 없음({FIREBASE_KEY_FILE}) — 업로드 건너뜀 (로컬 테스트 환경으로 판단)")
+        return
+    try:
+        import firebase_admin
+        from firebase_admin import credentials, db
+
+        if not firebase_admin._apps:
+            cred = credentials.Certificate(FIREBASE_KEY_FILE)
+            firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
+
+        ref = db.reference(FIREBASE_PATH)
+        ref.set(data)
+        print("Firebase 업로드 완료 (서비스 계정 인증)")
+    except Exception as fe:
+        print("Firebase 업로드 실패:", fe)
+
 try:
     w = fetch_weather()
     print("날씨 수집 완료:", w)
 
-    # ★ 수정 — 로컬 파일 저장은 실패해도(예: GitHub Actions에는 G드라이브가 없음)
+    # ★ 로컬 파일 저장은 실패해도(예: GitHub Actions에는 G드라이브가 없음)
     #   전체 스크립트가 멈추지 않도록 별도 try로 분리. 로컬 PC에서 돌릴 때만
     #   실제로 G드라이브에 저장되고, Actions에서는 경고만 찍고 다음 단계로 진행.
     try:
@@ -152,19 +175,7 @@ try:
         print("로컬 파일 저장 실패(무시하고 계속 진행):", le)
 
     # Firebase 업로드 — 로컬 저장 성공 여부와 무관하게 항상 시도
-    # ★ 수정 — 응답 상태코드/본문을 반드시 확인. requests.put()은 연결 자체가
-    #   실패할 때만 예외를 던지고, 보안 규칙 거부(401/403) 등은 예외 없이
-    #   조용히 넘어가기 때문에 "업로드 완료" 로그만 믿으면 안 됨.
-    try:
-        fb_resp = requests.put(FIREBASE_URL, json=w, timeout=(5, 15))
-        print("Firebase 응답 상태코드:", fb_resp.status_code)
-        print("Firebase 응답 본문:", fb_resp.text)
-        if fb_resp.status_code == 200:
-            print("Firebase 업로드 완료")
-        else:
-            print("Firebase 업로드 거부됨 — 상태코드/본문 확인 필요")
-    except Exception as fe:
-        print("Firebase 업로드 실패:", fe)
+    upload_to_firebase(w)
 
 except Exception as e:
     print("오류:", e)
