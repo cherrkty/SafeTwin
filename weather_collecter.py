@@ -56,7 +56,7 @@ def safe_float(v, default=0.0):
 
 def fetch_realtime():
     base_date, base_time = get_realtime_base_datetime()
-    url = ("http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
+    url = ("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
            f"?serviceKey={SERVICE_KEY}&numOfRows=60&pageNo=1&dataType=JSON"
            f"&base_date={base_date}&base_time={base_time}&nx={NX}&ny={NY}")
     r = requests.get(url, timeout=10)
@@ -67,7 +67,7 @@ def fetch_realtime():
 def fetch_forecast():
     """단기예보 한 번 호출로 POP(강수확률)와 SKY(하늘상태) 둘 다 추출"""
     base_date, base_time = get_forecast_base_datetime()
-    url = ("http://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+    url = ("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
            f"?serviceKey={SERVICE_KEY}&numOfRows=1000&pageNo=1&dataType=JSON"
            f"&base_date={base_date}&base_time={base_time}&nx={NX}&ny={NY}")
     r = requests.get(url, timeout=10)
