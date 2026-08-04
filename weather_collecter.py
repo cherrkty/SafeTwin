@@ -152,9 +152,17 @@ try:
         print("로컬 파일 저장 실패(무시하고 계속 진행):", le)
 
     # Firebase 업로드 — 로컬 저장 성공 여부와 무관하게 항상 시도
+    # ★ 수정 — 응답 상태코드/본문을 반드시 확인. requests.put()은 연결 자체가
+    #   실패할 때만 예외를 던지고, 보안 규칙 거부(401/403) 등은 예외 없이
+    #   조용히 넘어가기 때문에 "업로드 완료" 로그만 믿으면 안 됨.
     try:
-        requests.put(FIREBASE_URL, json=w)
-        print("Firebase 업로드 완료")
+        fb_resp = requests.put(FIREBASE_URL, json=w, timeout=(5, 15))
+        print("Firebase 응답 상태코드:", fb_resp.status_code)
+        print("Firebase 응답 본문:", fb_resp.text)
+        if fb_resp.status_code == 200:
+            print("Firebase 업로드 완료")
+        else:
+            print("Firebase 업로드 거부됨 — 상태코드/본문 확인 필요")
     except Exception as fe:
         print("Firebase 업로드 실패:", fe)
 
