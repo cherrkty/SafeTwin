@@ -134,18 +134,29 @@ def fetch_weather():
 
 try:
     w = fetch_weather()
-    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
-    with open(OUTPUT, "w", encoding="utf-8") as f:
-        json.dump(w, f, ensure_ascii=False, indent=2)
     print("날씨 수집 완료:", w)
 
- # ★ 추가 — Firebase에도 업로드
+    # ★ 수정 — 로컬 파일 저장은 실패해도(예: GitHub Actions에는 G드라이브가 없음)
+    #   전체 스크립트가 멈추지 않도록 별도 try로 분리. 로컬 PC에서 돌릴 때만
+    #   실제로 G드라이브에 저장되고, Actions에서는 경고만 찍고 다음 단계로 진행.
+    try:
+        out_dir = os.path.dirname(OUTPUT)
+        if out_dir:
+            os.makedirs(out_dir, exist_ok=True)
+            with open(OUTPUT, "w", encoding="utf-8") as f:
+                json.dump(w, f, ensure_ascii=False, indent=2)
+            print("로컬 파일 저장 완료:", OUTPUT)
+        else:
+            print("로컬 저장 경로 사용 불가(예: GitHub Actions 환경) — 건너뜀")
+    except Exception as le:
+        print("로컬 파일 저장 실패(무시하고 계속 진행):", le)
+
+    # Firebase 업로드 — 로컬 저장 성공 여부와 무관하게 항상 시도
     try:
         requests.put(FIREBASE_URL, json=w)
         print("Firebase 업로드 완료")
     except Exception as fe:
         print("Firebase 업로드 실패:", fe)
-
 
 except Exception as e:
     print("오류:", e)
