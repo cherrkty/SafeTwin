@@ -1,5 +1,13 @@
 import requests, json, datetime, os, time
 
+# ★ 수정 — GitHub Actions 서버는 UTC 기준이라 datetime.now()를 그대로 쓰면
+#   한국시간(KST, UTC+9)보다 9시간 느리게 찍힘. KST 고정 now() 헬퍼로 교체.
+#   로컬 PC(이미 KST)에서 돌려도 동일하게 정확한 KST 시각이 나옴.
+KST = datetime.timezone(datetime.timedelta(hours=9))
+
+def now_kst():
+    return datetime.datetime.now(KST)
+
 # ===== 수정 =====
 SERVICE_KEY = "5bd3ec725b6f3296044a5b57defb49b921430b38d68d1607e6703643bb66a65f"
 OUTPUT = r"G:\내 드라이브\수방프로젝트\weather_gangnam.json"
@@ -13,13 +21,13 @@ FIREBASE_KEY_FILE = "firebase-key.json"
 # ================
 
 def get_realtime_base_datetime():
-    now = datetime.datetime.now()
+    now = now_kst()
     if now.minute < 40:
         now -= datetime.timedelta(hours=1)
     return now.strftime("%Y%m%d"), now.strftime("%H00")
 
 def get_forecast_base_datetime():
-    now = datetime.datetime.now()
+    now = now_kst()
     base_hours = [2, 5, 8, 11, 14, 17, 20, 23]
     base_hour = None
     for h in reversed(base_hours):
@@ -70,8 +78,8 @@ def fetch_forecast():
     r = fetch_with_retry(url, "예보")
     items = r.json()["response"]["body"]["items"]["item"]
 
-    today_str = datetime.datetime.now().strftime("%Y%m%d")
-    current_hour = datetime.datetime.now().hour
+    today_str = now_kst().strftime("%Y%m%d")
+    current_hour = now_kst().hour
 
     morning_pop, afternoon_pop = 0.0, 0.0
     sky_value, sky_diff = None, 9999
@@ -122,7 +130,7 @@ def fetch_weather():
         morning_pop, afternoon_pop, sky_text = 0.0, 0.0, "맑음"
 
     out = {
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": now_kst().strftime("%Y-%m-%d %H:%M:%S"),
         "temperature": temp,
         "rainfall": rain,
         "precipitation": precipitation,
