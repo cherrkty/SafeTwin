@@ -1,44 +1,21 @@
-import firebase_admin
-from firebase_admin import credentials, db
-import requests, json, datetime, os
-
-# ★ GitHub Actions 서버는 UTC로 돌아가므로, 한국 시간이 필요한 모든 곳에서 이 함수를 사용
-KST = datetime.timezone(datetime.timedelta(hours=9))
-def now_kst():
-    return datetime.datetime.now(KST)
-
-
-# ★ 스크립트 맨 위, 최초 1회만 초기화
-FIREBASE_KEY_PATH = "firebase-key.json"
-FIREBASE_DB_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app"
-
-if not firebase_admin._apps:  # 중복 초기화 방지
-    cred = credentials.Certificate(FIREBASE_KEY_PATH)
-    firebase_admin.initialize_app(cred, {"databaseURL": FIREBASE_DB_URL})
-
-
-
+import requests, json, datetime, os, time
 
 # ===== 수정 =====
-import os
-SERVICE_KEY = os.environ.get("SERVICE_KEY", "여기에_로컬_테스트용_키_임시로_넣어도_됨")
+SERVICE_KEY = "5bd3ec725b6f3296044a5b57defb49b921430b38d68d1607e6703643bb66a65f"
 OUTPUT = r"G:\내 드라이브\수방프로젝트\weather_gangnam.json"
 NX, NY = 62, 126
 
 FIREBASE_URL = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app/weather_gangnam.json"
 # ================
 
-
-
-
 def get_realtime_base_datetime():
-    now = now_kst()
+    now = datetime.datetime.now()
     if now.minute < 40:
         now -= datetime.timedelta(hours=1)
     return now.strftime("%Y%m%d"), now.strftime("%H00")
 
 def get_forecast_base_datetime():
-    now = now_kst()
+    now = datetime.datetime.now()
     base_hours = [2, 5, 8, 11, 14, 17, 20, 23]
     base_hour = None
     for h in reversed(base_hours):
@@ -54,13 +31,29 @@ def safe_float(v, default=0.0):
     try:    return float(v)
     except: return default
 
+# ★ 추가 — 타임아웃/연결 오류 시 재시도하는 공용 GET 헬퍼
+#   - 최대 3회 시도, 실패 시 3초 대기 후 재시도
+#   - connect timeout 5초 / read timeout 15초 (기존 10초 단일값보다 여유 있게)
+def fetch_with_retry(url, label, max_retries=3, retry_delay=3):
+    last_error = None
+    for attempt in range(1, max_retries + 1):
+        try:
+            r = requests.get(url, timeout=(5, 15))
+            print(f"[{label}] 상태코드:", r.status_code, f"(시도 {attempt}/{max_retries})")
+            return r
+        except requests.exceptions.RequestException as e:
+            last_error = e
+            print(f"[{label}] 요청 실패 (시도 {attempt}/{max_retries}): {e}")
+            if attempt < max_retries:
+                time.sleep(retry_delay)
+    raise last_error
+
 def fetch_realtime():
     base_date, base_time = get_realtime_base_datetime()
     url = ("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getUltraSrtNcst"
            f"?serviceKey={SERVICE_KEY}&numOfRows=60&pageNo=1&dataType=JSON"
            f"&base_date={base_date}&base_time={base_time}&nx={NX}&ny={NY}")
-    r = requests.get(url, timeout=10)
-    print("[실황] 상태코드:", r.status_code)
+    r = fetch_with_retry(url, "실황")
     items = r.json()["response"]["body"]["items"]["item"]
     return {it["category"]: it["obsrValue"] for it in items}, base_date, base_time
 
@@ -70,12 +63,11 @@ def fetch_forecast():
     url = ("https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
            f"?serviceKey={SERVICE_KEY}&numOfRows=1000&pageNo=1&dataType=JSON"
            f"&base_date={base_date}&base_time={base_time}&nx={NX}&ny={NY}")
-    r = requests.get(url, timeout=10)
-    print("[예보] 상태코드:", r.status_code)
+    r = fetch_with_retry(url, "예보")
     items = r.json()["response"]["body"]["items"]["item"]
 
-    today_str = now_kst().strftime("%Y%m%d")
-    current_hour = now_kst().hour
+    today_str = datetime.datetime.now().strftime("%Y%m%d")
+    current_hour = datetime.datetime.now().hour
 
     morning_pop, afternoon_pop = 0.0, 0.0
     sky_value, sky_diff = None, 9999
@@ -126,7 +118,7 @@ def fetch_weather():
         morning_pop, afternoon_pop, sky_text = 0.0, 0.0, "맑음"
 
     out = {
-        "timestamp": now_kst().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "temperature": temp,
         "rainfall": rain,
         "precipitation": precipitation,
@@ -142,23 +134,18 @@ def fetch_weather():
 
 try:
     w = fetch_weather()
-except Exception as e:
-    print("데이터 수집 오류:", e)
-    w = None
+    os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
+    with open(OUTPUT, "w", encoding="utf-8") as f:
+        json.dump(w, f, ensure_ascii=False, indent=2)
+    print("날씨 수집 완료:", w)
 
-if w is not None:
-    # 로컬 파일 저장 (Windows PC에서만 성공, GitHub 서버에선 실패해도 무시)
+ # ★ 추가 — Firebase에도 업로드
     try:
-        os.makedirs(os.path.dirname(OUTPUT), exist_ok=True)
-        with open(OUTPUT, "w", encoding="utf-8") as f:
-            json.dump(w, f, ensure_ascii=False, indent=2)
-        print("날씨 수집 완료:", w)
-    except Exception as e:
-        print("로컬 파일 저장 건너뜀 (클라우드 환경):", e)
-
-    # Firebase 업로드 (로컬 저장 성공 여부와 무관하게 항상 시도)
-    try:
-        db.reference("weather_gangnam").set(w)
+        requests.put(FIREBASE_URL, json=w)
         print("Firebase 업로드 완료")
     except Exception as fe:
         print("Firebase 업로드 실패:", fe)
+
+
+except Exception as e:
+    print("오류:", e)
