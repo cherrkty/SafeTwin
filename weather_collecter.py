@@ -1,24 +1,21 @@
 import requests, json, datetime, os, time
 
-# ★ 수정 — GitHub Actions 서버는 UTC 기준이라 datetime.now()를 그대로 쓰면
-#   한국시간(KST, UTC+9)보다 9시간 느리게 찍힘. KST 고정 now() 헬퍼로 교체.
-#   로컬 PC(이미 KST)에서 돌려도 동일하게 정확한 KST 시각이 나옴.
+
 KST = datetime.timezone(datetime.timedelta(hours=9))
 
 def now_kst():
     return datetime.datetime.now(KST)
 
-# ===== 수정 =====
-SERVICE_KEY = "5bd3ec725b6f3296044a5b57defb49b921430b38d68d1607e6703643bb66a65f"
+
+SERVICE_KEY = os.environ.get("SERVICE_KEY", "")
 OUTPUT = r"G:\내 드라이브\수방프로젝트\weather_gangnam.json"
 NX, NY = 62, 126
 
-# ★ 수정 — 인증 없는 REST PUT 대신 firebase-admin 서비스 계정 인증으로 전환
-#   (워크플로우의 "Firebase 서비스 계정 키 파일 생성" 단계에서 firebase-key.json을 만들어줌)
+
 FIREBASE_DB_URL   = "https://gangnam-subang-default-rtdb.asia-southeast1.firebasedatabase.app"
 FIREBASE_PATH     = "weather_gangnam"
 FIREBASE_KEY_FILE = "firebase-key.json"
-# ================
+
 
 def get_realtime_base_datetime():
     now = now_kst()
@@ -43,9 +40,7 @@ def safe_float(v, default=0.0):
     try:    return float(v)
     except: return default
 
-# ★ 추가 — 타임아웃/연결 오류 시 재시도하는 공용 GET 헬퍼
-#   - 최대 3회 시도, 실패 시 3초 대기 후 재시도
-#   - connect timeout 5초 / read timeout 15초 (기존 10초 단일값보다 여유 있게)
+
 def fetch_with_retry(url, label, max_retries=3, retry_delay=3):
     last_error = None
     for attempt in range(1, max_retries + 1):
@@ -144,7 +139,7 @@ def fetch_weather():
     }
     return out
 
-# ★ 수정 — firebase-admin 서비스 계정 인증으로 업로드 (보안 규칙 우회, 항상 쓰기 허용)
+
 def upload_to_firebase(data):
     if not os.path.exists(FIREBASE_KEY_FILE):
         print(f"Firebase 서비스 계정 키 파일 없음({FIREBASE_KEY_FILE}) — 업로드 건너뜀 (로컬 테스트 환경으로 판단)")
@@ -167,9 +162,7 @@ try:
     w = fetch_weather()
     print("날씨 수집 완료:", w)
 
-    # ★ 로컬 파일 저장은 실패해도(예: GitHub Actions에는 G드라이브가 없음)
-    #   전체 스크립트가 멈추지 않도록 별도 try로 분리. 로컬 PC에서 돌릴 때만
-    #   실제로 G드라이브에 저장되고, Actions에서는 경고만 찍고 다음 단계로 진행.
+   
     try:
         out_dir = os.path.dirname(OUTPUT)
         if out_dir:
@@ -182,7 +175,7 @@ try:
     except Exception as le:
         print("로컬 파일 저장 실패(무시하고 계속 진행):", le)
 
-    # Firebase 업로드 — 로컬 저장 성공 여부와 무관하게 항상 시도
+   
     upload_to_firebase(w)
 
 except Exception as e:
