@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: 저장소 체크아웃
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Python 설치
         uses: actions/setup-python@v6
@@ -24,4 +24,4 @@ jobs:
       - name: 날씨 수집 스크립트 실행
         env:
           SERVICE_KEY: ${{ secrets.WEATHER_SERVICE_KEY }}
-        run: python weather_collecter.py
+        run: python weather_collector.py
