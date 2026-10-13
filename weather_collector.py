@@ -1,4 +1,4 @@
-import requests, json, datetime, os, time
+import requests, json, datetime, os, time, sys
 
 
 KST = datetime.timezone(datetime.timedelta(hours=9))
@@ -41,11 +41,11 @@ def safe_float(v, default=0.0):
     except: return default
 
 
-def fetch_with_retry(url, label, max_retries=3, retry_delay=3):
+def fetch_with_retry(url, label, max_retries=5, retry_delay=10):
     last_error = None
     for attempt in range(1, max_retries + 1):
         try:
-            r = requests.get(url, timeout=(5, 15))
+            r = requests.get(url, timeout=(15, 20))
             print(f"[{label}] 상태코드:", r.status_code, f"(시도 {attempt}/{max_retries})")
             return r
         except requests.exceptions.RequestException as e:
@@ -157,6 +157,8 @@ def upload_to_firebase(data):
         print("Firebase 업로드 완료 (서비스 계정 인증)")
     except Exception as fe:
         print("Firebase 업로드 실패:", fe)
+       
+        raise
 
 try:
     w = fetch_weather()
@@ -175,8 +177,10 @@ try:
     except Exception as le:
         print("로컬 파일 저장 실패(무시하고 계속 진행):", le)
 
-   
+    
     upload_to_firebase(w)
 
 except Exception as e:
     print("오류:", e)
+   
+    sys.exit(1)
